@@ -283,6 +283,22 @@ def compute_progress(records: list, route_extent: int) -> dict:
     }
 
 
+def get_available_data_files() -> list:
+    return sorted(Path(__file__).parent.glob("*.csv"))
+
+
+def load_data_file(filename: str) -> str:
+    path = Path(__file__).parent / filename
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return "Item,Stretch\nSubgrade,100-150\nSubgrade,600-800\nSubgrade,1400-1600\nEmbankment EW,100-150\nEmbankment EW,600-800\nEmbankment EW,1400-1600"
+
+
+DATA_FILES = get_available_data_files()
+DATA_FILE_OPTIONS = [{"label": f.name, "value": f.name} for f in DATA_FILES]
+DEFAULT_DATA_FILE = DATA_FILES[0].name if DATA_FILES else None
+
+
 # Layout
 app.layout = html.Div(
     style={
@@ -325,19 +341,30 @@ app.layout = html.Div(
                         "marginBottom": "24px",
                     },
                 ),
-                html.Button(
-                    "Try sample data",
-                    id="load-sample",
-                    n_clicks=0,
-                    style={
-                        "color": "#58a6ff",
-                        "fontSize": "0.9rem",
-                        "marginBottom": "24px",
-                        "background": "none",
-                        "border": "none",
-                        "cursor": "pointer",
-                        "padding": 0,
-                    },
+                html.Div(
+                    id="data-file-section",
+                    style={"marginBottom": "24px", "display": "flex", "flexWrap": "wrap", "alignItems": "center", "gap": "12px"},
+                    children=[
+                        dcc.Dropdown(
+                            id="sample-file-dropdown",
+                            options=DATA_FILE_OPTIONS,
+                            value=DEFAULT_DATA_FILE,
+                            style={"minWidth": "180px"} if DATA_FILES else {"display": "none"},
+                        ),
+                        html.Button(
+                            "Load data file" if DATA_FILES else "Try sample data",
+                            id="load-sample",
+                            n_clicks=0,
+                            style={
+                                "color": "#58a6ff",
+                                "fontSize": "0.9rem",
+                                "background": "none",
+                                "border": "none",
+                                "cursor": "pointer",
+                                "padding": 0,
+                            },
+                        ),
+                    ],
                 ),
                 html.Div(
                     id="progress-filters",
@@ -362,6 +389,7 @@ app.layout = html.Div(
                 html.Div(id="output-container", children=[]),
             ],
         ),
+        dcc.Location(id="url", refresh=False),
         dcc.Store(id="stored-data"),
         dcc.Store(id="records-store", data={}),
     ],
@@ -377,27 +405,26 @@ app.layout = html.Div(
     Output("filter-bill", "value"),
     Output("filter-month", "value"),
     Output("progress-filters", "style"),
+    Input("url", "pathname"),
     Input("upload-data", "contents"),
     Input("load-sample", "n_clicks"),
     Input("apply-progress-filter", "n_clicks"),
     State("records-store", "data"),
     State("filter-bill", "value"),
     State("filter-month", "value"),
-    prevent_initial_call=True,
+    State("sample-file-dropdown", "value"),
+    prevent_initial_call=False,
 )
-def process_upload(contents, n_clicks, apply_clicks, stored_records, filter_bill, filter_month):
+def process_upload(pathname, contents, n_clicks, apply_clicks, stored_records, filter_bill, filter_month, selected_file):
     ctx = dash.callback_context
     if not ctx.triggered:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     prop = ctx.triggered[0]["prop_id"]
     if "apply-progress-filter" in prop:
         pass
-    elif "load-sample" in prop:
-        path = Path(__file__).parent / "emb and subgrade.csv"
-        if path.exists():
-            text = path.read_text(encoding="utf-8")
-        else:
-            text = "Item,Stretch\nSubgrade,100-150\nSubgrade,600-800\nSubgrade,1400-1600\nEmbankment EW,100-150\nEmbankment EW,600-800\nEmbankment EW,1400-1600"
+    elif "load-sample" in prop or (prop == "url.pathname" and pathname and not stored_records.get("records") and DATA_FILES):
+        filename = (selected_file or DEFAULT_DATA_FILE) or ""
+        text = load_data_file(filename)
     elif contents:
         _, content = contents.split(",", 1)
         text = base64.b64decode(content).decode("utf-8")

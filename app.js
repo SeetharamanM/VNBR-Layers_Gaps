@@ -1,6 +1,8 @@
 (function () {
   'use strict';
 
+  const DATA_FILES = ['emb and subgrade.csv', 'Pavement Layers.csv'];
+
   const CHUNK_SIZE = 1000;
   const LAYER_COLORS = {
     'Subgrade': '#238636',
@@ -522,13 +524,33 @@
     if (file) processFile(file);
   });
 
-  document.getElementById('loadSample').addEventListener('click', (e) => {
-    e.preventDefault();
-    fetch('emb%20and%20subgrade.csv')
+  const dataFileSection = document.getElementById('dataFileSection');
+  const dataFileSelect = document.getElementById('dataFileSelect');
+  const loadSampleBtn = document.getElementById('loadSample');
+
+  if (DATA_FILES.length > 0) {
+    loadSampleBtn.textContent = 'Load data file';
+    DATA_FILES.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = f;
+      dataFileSelect.appendChild(opt);
+    });
+    if (DATA_FILES.length === 1) {
+      dataFileSelect.style.display = 'none';
+    }
+  } else {
+    dataFileSelect.style.display = 'none';
+    loadSampleBtn.textContent = 'Try sample data';
+  }
+
+  function loadDataFile(filename) {
+    const url = encodeURI(filename);
+    fetch(url)
       .then(r => r.ok ? r.text() : Promise.reject(null))
       .then(text => {
         const blob = new Blob([text], { type: 'text/csv' });
-        processFile(new File([blob], 'emb and subgrade.csv', { type: 'text/csv' }));
+        processFile(new File([blob], filename, { type: 'text/csv' }));
       })
       .catch(() => {
         const sample = `Item,Stretch
@@ -541,5 +563,18 @@ Embankment EW,1400-1600`;
         const blob = new Blob([sample], { type: 'text/csv' });
         processFile(new File([blob], 'sample.csv', { type: 'text/csv' }));
       });
+  }
+
+  loadSampleBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (DATA_FILES.length > 0) {
+      loadDataFile(dataFileSelect.value);
+    } else {
+      loadDataFile('');
+    }
   });
+
+  if (DATA_FILES.length > 0) {
+    loadDataFile(DATA_FILES[0]);
+  }
 })();

@@ -270,7 +270,10 @@
       <div class="icon">📂</div>
       <p>Drop CSV here or click to upload</p>
       <p class="hint">Expected columns: Item (layer), Stretch (e.g. 500-1000)</p>
-      <p class="hint" style="margin-top: 12px;"><a href="#" id="loadSample" style="color: var(--accent);">Try sample data</a></p>
+      <div id="dataFileSection" class="data-file-section" style="margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+        <select id="dataFileSelect" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-size: 0.9rem;"></select>
+        <a href="#" id="loadSample" style="color: var(--accent);"></a>
+      </div>
     </div>
 
     <div class="chart-section" id="chartSection" style="display: none;">

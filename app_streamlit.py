@@ -278,8 +278,14 @@ def compute_progress(records: list, route_extent: int) -> dict:
     }
 
 
-def load_sample_data() -> str:
-    path = Path(__file__).parent / "emb and subgrade.csv"
+def get_available_data_files() -> list[Path]:
+    """Return list of CSV files in the project directory."""
+    project_dir = Path(__file__).parent
+    return sorted(project_dir.glob("*.csv"))
+
+
+def load_data_file(filename: str) -> str:
+    path = Path(__file__).parent / filename
     if path.exists():
         return path.read_text(encoding="utf-8")
     return "Item,Stretch\nSubgrade,100-150\nSubgrade,600-800\nSubgrade,1400-1600\nEmbankment EW,100-150\nEmbankment EW,600-800\nEmbankment EW,1400-1600"
@@ -296,6 +302,20 @@ if "records" not in st.session_state:
 if "ignore_upload" not in st.session_state:
     st.session_state.ignore_upload = False
 
+data_files = get_available_data_files()
+data_file_names = [f.name for f in data_files]
+
+# Load default data file on first visit
+if st.session_state.records is None and data_files:
+    text = load_data_file(data_files[0].name)
+    try:
+        records, route_extent = parse_csv(text)
+        st.session_state.records = records
+        st.session_state.route_extent = route_extent
+        st.rerun()
+    except Exception:
+        pass  # Fall through to show upload UI
+
 col1, col2 = st.columns([3, 1])
 with col1:
     uploaded_file = st.file_uploader(
@@ -304,16 +324,37 @@ with col1:
         help="Expected columns: Item (layer), Stretch (e.g. 500-1000)",
     )
 with col2:
-    if st.button("Try sample data", use_container_width=True):
-        text = load_sample_data()
-        try:
-            records, route_extent = parse_csv(text)
-            st.session_state.records = records
-            st.session_state.route_extent = route_extent
-            st.session_state.ignore_upload = True
-            st.rerun()
-        except Exception as e:
-            st.error(str(e))
+    if data_files:
+        if len(data_files) > 1:
+            selected = st.selectbox(
+                "Data file",
+                options=data_file_names,
+                index=0,
+                key="data_file_select",
+            )
+        else:
+            selected = data_file_names[0]
+        if st.button("Load data file", use_container_width=True):
+            text = load_data_file(selected)
+            try:
+                records, route_extent = parse_csv(text)
+                st.session_state.records = records
+                st.session_state.route_extent = route_extent
+                st.session_state.ignore_upload = True
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
+    else:
+        if st.button("Try sample data", use_container_width=True):
+            text = load_data_file("")
+            try:
+                records, route_extent = parse_csv(text)
+                st.session_state.records = records
+                st.session_state.route_extent = route_extent
+                st.session_state.ignore_upload = True
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
 
 if uploaded_file and not st.session_state.ignore_upload:
     text = uploaded_file.read().decode("utf-8")
@@ -328,7 +369,7 @@ st.session_state.ignore_upload = False
 
 all_records = st.session_state.records
 if not all_records:
-    st.info("📂 Upload a CSV or click **Try sample data** to get started.")
+    st.info("📂 Upload a CSV or load a data file to get started.")
     st.stop()
 
 route_extent = st.session_state.route_extent
